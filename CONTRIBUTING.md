@@ -29,6 +29,7 @@ Each tool is a self-contained module in `src/sectools/tools/` that exposes four 
 NAME = "mytool"
 HELP = "one-line description shown in --help"
 
+
 def add_arguments(parser: argparse.ArgumentParser) -> None: ...
 def run(args: argparse.Namespace) -> Finding: ...
 ```

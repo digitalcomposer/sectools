@@ -36,6 +36,7 @@ class MailAnalysis(TypedDict):
     earliest_received_utc: str | None
     anomalies: list[str]
 
+
 _RECEIVED_DATE_RE = re.compile(r";\s*(.+)$")
 _DOMAIN_RE = re.compile(r"@([A-Za-z0-9.\-]+)")
 

@@ -11,6 +11,7 @@ from sectools.tools import (
     certscan,
     cvelookup,
     dbexport,
+    doctor,
     mailscan,
     pcaptriage,
     verify,
@@ -19,6 +20,7 @@ from sectools.tools import (
 )
 
 TOOLS = [
+    doctor,
     verify,
     xorkey,
     mailscan,

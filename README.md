@@ -39,10 +39,56 @@ python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+## Requirements
+
+- **OS:** Linux, macOS, or Windows.
+- **Python:** 3.10 or newer.
+- **Core tools** (`verify`, `xorkey`, `mailscan`, `dbexport`, `cvelookup`,
+  `webrecon`): **no extra tools** — standard library only. `cvelookup` and
+  `webrecon` need **internet access** at runtime.
+- **Two tools need an extra**, listed below.
+
+| Tool | Needs | How it's satisfied |
+|---|---|---|
+| `pcaptriage` | **tshark** (Wireshark CLI) | required — install it (table below) |
+| `certscan` | **cryptography** *or* **openssl** | `pip install "sectools[certs]"`, else falls back to the `openssl` CLI (preinstalled on macOS/Linux) |
+
+Not sure what you have? Run the built-in check:
+
+```bash
+sectools doctor
+```
+
+It prints your OS, Python version, which dependencies are present/missing, what
+each tool needs, and the exact install command for anything missing.
+
+### Installing the external tools
+
+**tshark** (only for `pcaptriage`):
+
+| OS | Command |
+|---|---|
+| macOS (Homebrew) | `brew install wireshark` |
+| Debian / Ubuntu | `sudo apt install tshark` |
+| Fedora / RHEL | `sudo dnf install wireshark-cli` |
+| Windows | `choco install wireshark` (or install Wireshark and add it to `PATH`) |
+
+**openssl** (only for `certscan` *if* you did not install the `certs` extra — usually already present):
+
+| OS | Command |
+|---|---|
+| macOS | preinstalled (or `brew install openssl`) |
+| Debian / Ubuntu | `sudo apt install openssl` |
+| Fedora / RHEL | `sudo dnf install openssl` |
+| Windows | `choco install openssl` (or use Git for Windows' `openssl`) |
+
+See [docs/requirements.md](docs/requirements.md) for the full details.
+
 ## Tools
 
 | Command | What it does |
 |---|---|
+| `doctor` | Report OS, Python, and which optional/external dependencies are installed |
 | `verify` | Compute / verify a file checksum (md5, sha1, sha256, sha512) |
 | `xorkey` | Recover a repeating-XOR key from a known plaintext/ciphertext pair and decrypt files |
 | `mailscan` | Analyse an `.eml`: headers, `Received` chain, and manipulation indicators |

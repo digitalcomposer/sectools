@@ -12,6 +12,7 @@ def test_every_tool_registers_a_subcommand():
     assert actions, "no subcommand group found"
     names = set(actions[0].choices)
     assert {
+        "doctor",
         "verify",
         "xorkey",
         "mailscan",

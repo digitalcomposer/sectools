@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import csv
+import json
 import sqlite3
 
 import pytest
 
+from sectools.cli import main
 from sectools.tools import dbexport
 
 
@@ -63,3 +65,40 @@ def test_filtered_ordered_export(sample_db, tmp_path):
         read = list(csv.reader(handle))
     assert read[0] == ["id", "email"]
     assert read[1:] == [["1", "a@example.com"], ["3", "c@example.com"]]
+
+
+def test_cli_schema(sample_db, capsys):
+    rc = main(["dbexport", "--db", str(sample_db), "--schema", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    names = {t["name"] for t in payload["data"]["schema"]}
+    assert names == {"t_status", "t_user"}
+
+
+def test_cli_table_export(sample_db, tmp_path):
+    out = tmp_path / "active.csv"
+    rc = main(
+        [
+            "dbexport",
+            "--db",
+            str(sample_db),
+            "--table",
+            "t_user",
+            "--columns",
+            "id,email",
+            "--where",
+            "status_id = 1",
+            "--order-by",
+            "id ASC",
+            "--out",
+            str(out),
+        ]
+    )
+    assert rc == 0
+    rows = out.read_text().splitlines()
+    assert rows[0] == "id,email"
+    assert rows[1:] == ["1,a@example.com", "3,c@example.com"]
+
+
+def test_cli_missing_selector_errors(sample_db):
+    assert main(["dbexport", "--db", str(sample_db)]) == 2

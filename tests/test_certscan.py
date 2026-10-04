@@ -30,3 +30,18 @@ def test_summarize_certificate_from_pem(fixtures):
 def test_load_der_detects_pem(fixtures):
     der = certscan._load_der(fixtures / "sample_cert.pem")
     assert der[:1] == b"\x30"  # DER SEQUENCE tag
+
+
+@pytest.mark.skipif(not _has_engine, reason="needs cryptography or the openssl CLI")
+def test_cli_run_from_file(fixtures, capsys):
+    from sectools.cli import main
+
+    rc = main(["certscan", "--file", str(fixtures / "sample_cert.pem"), "--json"])
+    assert rc == 0
+    import json
+
+    payload = json.loads(capsys.readouterr().out)
+    certs = payload["data"]["certificates"]
+    assert len(certs) == 1
+    assert "example.test" in (certs[0]["subject"] or "")
+    assert certs[0]["expired"] is False

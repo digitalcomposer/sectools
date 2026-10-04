@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import base64
+import json
 
+from sectools.cli import main
 from sectools.tools import pcaptriage
 
 
@@ -15,3 +17,46 @@ def test_decode_basic_auth_rejects_garbage():
     assert pcaptriage.decode_basic_auth("Basic not-base64!!") is None
     token = base64.b64encode(b"no-colon-here").decode()
     assert pcaptriage.decode_basic_auth(f"Basic {token}") is None
+
+
+def _fake_run_fields_factory():
+    """Return a stand-in for tshark that answers by display filter."""
+    token = base64.b64encode(b"alice:s3cret").decode()
+
+    def fake(pcap, display_filter, fields):
+        if "http.authorization" in display_filter:
+            return [[f"Basic {token}"]]
+        if "urlencoded-form" in display_filter:
+            return [["example.com", "user,pass", "bob,hunter2"]]
+        if "ftp.request.command" in display_filter:
+            return [["USER", "carol"], ["PASS", "pw123"]]
+        if "tcp.flags.syn" in display_filter:
+            return [["1"], ["2"], ["3"]]  # three SYNs
+        return []
+
+    return fake
+
+
+def test_extract_credentials_all_schemes(monkeypatch):
+    monkeypatch.setattr(pcaptriage, "_run_fields", _fake_run_fields_factory())
+    creds = pcaptriage.extract_credentials("x.pcap")
+    schemes = {c["scheme"] for c in creds}
+    assert schemes == {"http-basic", "http-form", "ftp"}
+    basic = next(c for c in creds if c["scheme"] == "http-basic")
+    assert basic == {"scheme": "http-basic", "username": "alice", "password": "s3cret"}
+    ftp = next(c for c in creds if c["scheme"] == "ftp")
+    assert ftp["username"] == "carol" and ftp["password"] == "pw123"
+
+
+def test_cli_run_credentials_and_handshakes(monkeypatch, tmp_path, capsys):
+    pcap = tmp_path / "x.pcap"
+    pcap.write_bytes(b"\xd4\xc3\xb2\xa1")  # dummy; _run_fields is mocked
+    monkeypatch.setattr(pcaptriage, "_run_fields", _fake_run_fields_factory())
+    rc = main(
+        ["pcaptriage", "--pcap", str(pcap), "--credentials", "--handshake-port", "22", "--json"]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert len(payload["data"]["credentials"]) == 3
+    assert payload["data"]["handshakes"]["count"] == 3
+    assert payload["data"]["handshakes"]["port"] == 22

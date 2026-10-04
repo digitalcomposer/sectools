@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from email import message_from_bytes
 
+from sectools.cli import main
 from sectools.tools import mailscan
 
 
@@ -25,3 +27,17 @@ def test_analyze_flags_manipulation(fixtures):
     assert "date header" in anomalies  # Date far from Received timestamps
     assert "message-id domain" in anomalies  # domain mismatch
     assert "authentication" in anomalies  # no SPF/DKIM
+
+
+def test_cli_run_and_evidence(fixtures, tmp_path, capsys):
+    ev = tmp_path / "ev"
+    rc = main(
+        ["mailscan", "--eml", str(fixtures / "manipulated.eml"), "--json", "--evidence", str(ev)]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["tool"] == "mailscan"
+    assert len(payload["data"]["anomalies"]) == 3
+    # --evidence wrote a JSON + Markdown record
+    written = list(ev.glob("mailscan-*"))
+    assert {p.suffix for p in written} == {".json", ".md"}

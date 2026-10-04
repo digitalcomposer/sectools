@@ -1,0 +1,17 @@
+Return-Path: <sender@example.com>
+Received: from relay.receiver.net (relay.receiver.net [203.0.113.9])
+	by mx.receiver.net with ESMTP id ABC123
+	for <dest@receiver.net>; Sat, 27 May 2023 11:05:02 +0000
+Received: from mail.example.com (mail.example.com [198.51.100.7])
+	by relay.receiver.net with ESMTP id XYZ789
+	for <dest@receiver.net>; Sat, 27 May 2023 11:05:00 +0000
+From: Sample Sender <sender@example.com>
+To: Destination <dest@receiver.net>
+Subject: Quarterly report
+Date: Sat, 27 May 2023 09:00:00 +0000
+Message-ID: <unique-id-001@totally-different-domain.org>
+Content-Type: text/plain; charset=us-ascii
+
+This fixture deliberately contains manipulation indicators for unit tests:
+the Date header is well before the server Received timestamps, and the
+Message-ID domain does not match the From domain. There is also no SPF/DKIM.

@@ -1,0 +1,12 @@
+# Normalise line endings; the repo lives on an exFAT volume where modes/EOLs drift.
+* text=auto eol=lf
+
+*.py   text eol=lf
+*.md   text eol=lf
+*.toml text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+
+# Keep certificate fixtures byte-for-byte.
+*.pem text eol=lf
+*.der binary

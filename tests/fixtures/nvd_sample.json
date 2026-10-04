@@ -1,0 +1,36 @@
+{
+  "resultsPerPage": 1,
+  "totalResults": 1,
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2023-00000",
+        "published": "2023-07-25T18:15:10.000",
+        "lastModified": "2023-08-01T12:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [
+          { "lang": "en", "value": "A sample authentication bypass used only for unit tests." },
+          { "lang": "es", "value": "Una muestra para pruebas." }
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "baseScore": 9.8,
+                "baseSeverity": "CRITICAL",
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+              }
+            }
+          ]
+        },
+        "references": [
+          { "url": "https://vendor.example/advisory/001", "source": "nvd@nist.gov" },
+          { "url": "https://nvd.nist.gov/vuln/detail/CVE-2023-00000", "source": "nvd@nist.gov" }
+        ]
+      }
+    }
+  ]
+}

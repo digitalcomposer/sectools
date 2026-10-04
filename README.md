@@ -101,6 +101,20 @@ See [docs/requirements.md](docs/requirements.md) for the full details.
 Every command accepts `--json` (machine-readable output) and `--evidence DIR`
 (write a timestamped JSON + Markdown record for your report).
 
+## Try it in one command
+
+After installing (`pip install -e ".[dev]"`), run the demo. It generates its own
+sample inputs and runs every tool against them — no internet or targets required:
+
+```bash
+make demo              # offline tools only
+make demo-online       # also run cvelookup, webrecon, certscan --host
+# or directly: bash examples/demo.sh [--online]
+```
+
+Other handy targets: `make test`, `make test-cov`, `make check`, `make doctor`
+(run `make help` for the full list).
+
 ## Examples
 
 ```bash

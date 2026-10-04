@@ -81,10 +81,11 @@ def extract_credentials(pcap: str) -> list[dict[str, Any]]:
         if form:
             creds.append({"scheme": "http-form", "host": host, "fields": form})
 
-    # FTP / plaintext USER + PASS.
+    # FTP / plaintext USER + PASS. (tshark's set membership needs quoted members,
+    # so we spell out the equality to stay portable across versions.)
     ftp = _run_fields(
         pcap,
-        "ftp.request.command in {USER PASS}",
+        'ftp.request.command == "USER" || ftp.request.command == "PASS"',
         ["ftp.request.command", "ftp.request.arg"],
     )
     user: str | None = None

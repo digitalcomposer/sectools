@@ -10,3 +10,6 @@
 # Keep certificate fixtures byte-for-byte.
 *.pem text eol=lf
 *.der binary
+
+# Binary test fixtures.
+*.pcap binary

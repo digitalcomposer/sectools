@@ -3,8 +3,12 @@ from __future__ import annotations
 import base64
 import json
 
+import pytest
+
 from sectools.cli import main
 from sectools.tools import pcaptriage
+
+_has_tshark = pcaptriage.find_tshark() is not None
 
 
 def test_decode_basic_auth():
@@ -60,3 +64,20 @@ def test_cli_run_credentials_and_handshakes(monkeypatch, tmp_path, capsys):
     assert len(payload["data"]["credentials"]) == 3
     assert payload["data"]["handshakes"]["count"] == 3
     assert payload["data"]["handshakes"]["port"] == 22
+
+
+@pytest.mark.skipif(not _has_tshark, reason="needs the tshark CLI")
+def test_integration_real_tshark_filters(fixtures):
+    """Run the real tshark filters against a fixture pcap.
+
+    This catches invalid display-filter syntax that the mocked unit tests cannot
+    (e.g. a filter that makes tshark exit non-zero).
+    """
+    pcap = str(fixtures / "http_basic_auth.pcap")
+    creds = pcaptriage.extract_credentials(pcap)  # exercises http + form + ftp filters
+    basic = [c for c in creds if c["scheme"] == "http-basic"]
+    assert basic and basic[0]["username"] == "alice"
+
+    count, flt = pcaptriage.count_handshakes(pcap, 80)
+    assert "tcp.flags.syn" in flt
+    assert isinstance(count, int)

@@ -57,38 +57,64 @@ def _parse_openssl_date(value: str) -> str | None:
     return parsed.isoformat()
 
 
-def _summarize_with_openssl(der: bytes) -> dict[str, Any]:
-    """Fallback summary using the system ``openssl`` CLI."""
+# When dumping the human-readable body we suppress every attacker-controlled
+# section (subject, issuer, extensions/SAN, serial...) so a hostile certificate
+# cannot inject fake "Public-Key:"/"Signature Algorithm:" lines into the text we
+# scan. Only the key info and the signature-algorithm name are left.
+_CERTOPT_KEY_ONLY = ",".join(
+    (
+        "no_header",
+        "no_version",
+        "no_serial",
+        "no_validity",
+        "no_subject",
+        "no_issuer",
+        "no_extensions",
+        "no_aux",
+        "no_sigdump",
+    )
+)
+
+
+def _run_openssl(der: bytes, args: list[str]) -> str:
     base = ["openssl", "x509", "-inform", "DER", "-noout", "-nameopt", "RFC2253"]
-    out = subprocess.run(  # noqa: S603 - fixed argv, no shell
-        [
-            *base,
-            "-subject",
-            "-issuer",
-            "-serial",
-            "-startdate",
-            "-enddate",
-            "-ext",
-            "subjectAltName",
-            "-text",  # also dump the human-readable body so we can read the key/signature
-        ],
+    return subprocess.run(  # noqa: S603 - fixed argv, no shell
+        [*base, *args],
         input=der,
         capture_output=True,
         check=True,
     ).stdout.decode("utf-8", "replace")
 
+
+def _summarize_with_openssl(der: bytes) -> dict[str, Any]:
+    """Fallback summary using the system ``openssl`` CLI.
+
+    Identity fields and the key/signature are read from two *separate* openssl
+    invocations. The key/signature pass restricts ``-text`` with ``-certopt`` so the
+    attacker-controlled subject, issuer and extensions (SAN) are never part of the
+    text we regex-scan; otherwise a hostile certificate could inject bogus
+    ``Public-Key:``/``Signature Algorithm:`` lines and spoof the reported values.
+    """
+    identity = _run_openssl(
+        der,
+        ["-subject", "-issuer", "-serial", "-startdate", "-enddate", "-ext", "subjectAltName"],
+    )
+    body = _run_openssl(der, ["-text", "-certopt", _CERTOPT_KEY_ONLY])
+
     def grab(prefix: str) -> str | None:
-        match = re.search(rf"^{prefix}=(.*)$", out, flags=re.MULTILINE)
+        # The structured fields precede the SAN in `identity`, and re.search returns
+        # the first match, so an injected SAN cannot override a real field here.
+        match = re.search(rf"^{prefix}=(.*)$", identity, flags=re.MULTILINE)
         return match.group(1).strip() if match else None
 
     sans_line = ""
     # openssl prints the long extension name, e.g. "X509v3 Subject Alternative Name:".
-    san_match = re.search(r"Subject Alternative Name:[^\n]*\n\s*(.+)", out)
+    san_match = re.search(r"Subject Alternative Name:[^\n]*\n\s*(.+)", identity)
     if san_match:
         sans_line = san_match.group(1)
     sans = [s.strip().removeprefix("DNS:") for s in sans_line.split(",") if s.strip()]
 
-    key_type, key_size = _parse_openssl_key(out)
+    key_type, key_size = _parse_openssl_key(body)
 
     not_before = _parse_openssl_date(grab("notBefore") or "")
     not_after = _parse_openssl_date(grab("notAfter") or "")
@@ -99,8 +125,7 @@ def _summarize_with_openssl(der: bytes) -> dict[str, Any]:
         "not_before": not_before,
         "not_after": not_after,
         "sans": sans,
-        # The signature algorithm is printed once per structure; the first hit is the cert's.
-        "signature_algorithm": _search1(r"Signature Algorithm:\s*(\S+)", out),
+        "signature_algorithm": _search1(r"Signature Algorithm:\s*(\S+)", body),
         "key_type": key_type,
         "key_size": key_size,
         "engine": "openssl",

@@ -44,6 +44,35 @@ def test_openssl_fallback_extracts_key_and_signature(fixtures):
     assert summary["signature_algorithm"] == "sha256WithRSAEncryption"
 
 
+def test_openssl_key_pass_is_isolated_from_attacker_controlled_fields(monkeypatch):
+    # The key/signature pass must not share openssl output with the subject, issuer
+    # or SAN, so a hostile cert cannot inject fake Public-Key/Signature lines.
+    calls = []
+
+    def fake_run(der, args):
+        calls.append(args)
+        if "-text" in args:
+            return (
+                "        Signature Algorithm: sha256WithRSAEncryption\n"
+                "            Public Key Algorithm: rsaEncryption\n"
+                "                Public-Key: (2048 bit)\n"
+            )
+        return "subject=CN=real\nissuer=CN=ca\nserial=01\nnotBefore=x\nnotAfter=y\n"
+
+    monkeypatch.setattr(certscan, "_run_openssl", fake_run)
+    summary = certscan._summarize_with_openssl(b"\x00")
+
+    assert len(calls) == 2
+    identity_args, body_args = calls
+    assert "-text" not in identity_args  # identity pass never dumps the body
+    assert "-text" in body_args and "-certopt" in body_args
+    certopt = body_args[body_args.index("-certopt") + 1]
+    for suppressed in ("no_subject", "no_issuer", "no_extensions"):
+        assert suppressed in certopt
+    assert summary["key_size"] == 2048
+    assert summary["subject"] == "CN=real"
+
+
 def test_identity_falls_back_to_san_when_subject_empty():
     cert = {"subject": "", "sans": ["ittrace.ch", "www.ittrace.ch"]}
     assert certscan._identity(cert) == "ittrace.ch, www.ittrace.ch"

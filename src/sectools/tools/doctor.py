@@ -35,15 +35,28 @@ INSTALL_HINTS: dict[str, dict[str, str]] = {
     "cryptography (Python)": {
         "all": 'pip install "sectools[certs]"',
     },
+    "sslyze (Python)": {
+        "all": 'pip install "sectools[tls]"',
+    },
+    "sslscan": {
+        "macOS": "brew install sslscan",
+        "Debian/Ubuntu": "sudo apt install sslscan",
+        "Fedora/RHEL": "sudo dnf install sslscan",
+        "Windows": "choco install sslscan  (or download a release build)",
+    },
+    "testssl.sh": {
+        "macOS": "brew install testssl",
+        "Debian/Ubuntu": "sudo apt install testssl.sh",
+        "Fedora/RHEL": "sudo dnf install testssl",
+        "Windows": "run under WSL / Git Bash (git clone drwetter/testssl.sh)",
+    },
 }
 
 
-def _check_cryptography() -> bool:
-    try:
-        import cryptography  # noqa: F401
-    except ImportError:
-        return False
-    return True
+def _module_available(name: str) -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec(name) is not None
 
 
 def check_dependencies() -> dict[str, bool]:
@@ -51,7 +64,10 @@ def check_dependencies() -> dict[str, bool]:
     return {
         "tshark": shutil.which("tshark") is not None,
         "openssl": shutil.which("openssl") is not None,
-        "cryptography (Python)": _check_cryptography(),
+        "cryptography (Python)": _module_available("cryptography"),
+        "sslyze (Python)": _module_available("sslyze"),
+        "sslscan": shutil.which("sslscan") is not None,
+        "testssl.sh": shutil.which("testssl.sh") is not None or shutil.which("testssl") is not None,
     }
 
 
@@ -65,6 +81,7 @@ TOOL_REQUIREMENTS: dict[str, str] = {
     "webrecon": "network",
     "pcaptriage": "tshark",
     "certscan": "cryptography (Python) OR openssl",
+    "tlsscan": "sslyze (Python) OR sslscan OR testssl.sh",
 }
 
 

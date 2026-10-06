@@ -22,16 +22,18 @@ is missing.
 | `webrecon` | — | — | **yes** | Single GET to the target |
 | `pcaptriage` | **tshark** | *(or `[pcap]` → scapy)* | no | tshark is the default engine |
 | `certscan` | **openssl** *(fallback)* | **`[certs]` → cryptography** | only with `--host` | Parses with `cryptography` if installed, else the `openssl` CLI |
+| `tlsscan` | **sslscan** *or* **testssl.sh** *(fallbacks)* | **`[tls]` → sslyze** | **yes** (`--host`) | Uses `sslyze` if installed, else the `sslscan` or `testssl.sh` CLI; needs at least one |
 
 "Standard library only" means nothing beyond Python itself is required.
 
 ## Python extras
 
 ```bash
-pip install sectools                 # core — everything except pcaptriage/certscan extras
+pip install sectools                 # core — everything except pcaptriage/certscan/tlsscan extras
 pip install "sectools[certs]"        # cryptography, for richer certscan parsing
 pip install "sectools[pcap]"         # scapy, an alternative pcap engine
-pip install "sectools[certs,pcap]"   # both
+pip install "sectools[tls]"          # sslyze, the preferred tlsscan engine
+pip install "sectools[certs,pcap,tls]"  # everything
 ```
 
 If you install `sectools[certs]`, `certscan` does **not** need the `openssl` CLI.
@@ -40,6 +42,11 @@ preinstalled on macOS and most Linux distributions.
 
 `pcaptriage` uses the `tshark` CLI by default and does not require the `pcap`
 extra; the extra only adds scapy as an alternative in-process engine.
+
+`tlsscan` prefers the `sslyze` package (`sectools[tls]`, structured output,
+cross-platform). Without it, it falls back to the `sslscan` or `testssl.sh` CLI —
+whichever is installed. At least one of the three is required; `sectools doctor`
+shows which you have. Pick a specific engine with `--engine {sslyze,sslscan,testssl}`.
 
 ## Installing tshark (for `pcaptriage`)
 
@@ -78,3 +85,30 @@ Verify:
 ```bash
 openssl version
 ```
+
+## Installing a TLS scanner (for `tlsscan`, only without the `tls` extra)
+
+Any **one** of these is enough; `sectools doctor` shows which you have.
+
+**sslscan:**
+
+| OS | Command |
+|---|---|
+| macOS (Homebrew) | `brew install sslscan` |
+| Debian / Ubuntu | `sudo apt install sslscan` |
+| Fedora / RHEL | `sudo dnf install sslscan` |
+| Arch | `sudo pacman -S sslscan` |
+| Windows (Chocolatey) | `choco install sslscan` |
+
+**testssl.sh:**
+
+| OS | Command |
+|---|---|
+| macOS (Homebrew) | `brew install testssl` |
+| Debian / Ubuntu | `sudo apt install testssl.sh` |
+| Fedora / RHEL | `sudo dnf install testssl` |
+| Windows | Run under WSL or Git Bash: `git clone https://github.com/drwetter/testssl.sh` |
+
+`testssl.sh` is the most thorough but also the slowest; raise `--timeout` for busy
+hosts. For structured, cross-platform output without a CLI, prefer `sectools[tls]`
+(sslyze) instead.

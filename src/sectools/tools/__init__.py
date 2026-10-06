@@ -14,6 +14,7 @@ from sectools.tools import (
     doctor,
     mailscan,
     pcaptriage,
+    tlsscan,
     verify,
     webrecon,
     xorkey,
@@ -29,6 +30,7 @@ TOOLS = [
     cvelookup,
     pcaptriage,
     certscan,
+    tlsscan,
 ]
 
 __all__ = ["TOOLS"]

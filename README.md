@@ -28,6 +28,7 @@ tools output a structured *finding* plus a Markdown fragment for you to review a
 pip install sectools                 # core (standard library only)
 pip install "sectools[certs]"        # richer X.509 parsing (cryptography)
 pip install "sectools[pcap]"         # in-process pcap parsing (scapy)
+pip install "sectools[tls]"          # structured TLS posture scan (sslyze)
 ```
 
 From source:
@@ -46,12 +47,13 @@ pip install -e ".[dev]"
 - **Core tools** (`verify`, `xorkey`, `mailscan`, `dbexport`, `cvelookup`,
   `webrecon`): **no extra tools** — standard library only. `cvelookup` and
   `webrecon` need **internet access** at runtime.
-- **Two tools need an extra**, listed below.
+- **Some tools need an extra**, listed below.
 
 | Tool | Needs | How it's satisfied |
 |---|---|---|
 | `pcaptriage` | **tshark** (Wireshark CLI) | required — install it (table below) |
 | `certscan` | **cryptography** *or* **openssl** | `pip install "sectools[certs]"`, else falls back to the `openssl` CLI (preinstalled on macOS/Linux) |
+| `tlsscan` | **sslyze** *or* **sslscan** *or* **testssl.sh** | `pip install "sectools[tls]"` (sslyze), else uses the `sslscan` or `testssl.sh` CLI if present (table below) |
 
 Not sure what you have? Run the built-in check:
 
@@ -82,6 +84,15 @@ each tool needs, and the exact install command for anything missing.
 | Fedora / RHEL | `sudo dnf install openssl` |
 | Windows | `choco install openssl` (or use Git for Windows' `openssl`) |
 
+**sslscan / testssl.sh** (only for `tlsscan` *if* you did not install the `tls` extra). Any one of them is enough; `sectools doctor` shows which you have:
+
+| OS | sslscan | testssl.sh |
+|---|---|---|
+| macOS (Homebrew) | `brew install sslscan` | `brew install testssl` |
+| Debian / Ubuntu | `sudo apt install sslscan` | `sudo apt install testssl.sh` |
+| Fedora / RHEL | `sudo dnf install sslscan` | `sudo dnf install testssl` |
+| Windows | `choco install sslscan` | run under WSL / Git Bash (`git clone drwetter/testssl.sh`) |
+
 See [docs/requirements.md](docs/requirements.md) for the full details.
 
 ## Tools
@@ -97,6 +108,7 @@ See [docs/requirements.md](docs/requirements.md) for the full details.
 | `cvelookup` | Look up a CVE on the NVD and summarise score, description, and references |
 | `pcaptriage` | Triage a `.pcap`: protocol mix, cleartext credentials, handshake counts (via `tshark`) |
 | `certscan` | Scan a host for TLS certificates or analyse certificate files (expiry, SANs, keys) |
+| `tlsscan` | Scan a host's TLS posture — protocol versions, cipher suites, known vulnerabilities (via `sslyze`/`sslscan`/`testssl.sh`) |
 
 Every command accepts `--json` (machine-readable output) and `--evidence DIR`
 (write a timestamped JSON + Markdown record for your report).
@@ -140,6 +152,9 @@ sectools pcaptriage --pcap traffic.pcap --credentials --handshake-port 22
 
 # Certificate scan (authorized targets only)
 sectools certscan --host example.com --ports 443,8443
+
+# TLS posture: protocol versions, ciphers, known vulns (authorized targets only)
+sectools tlsscan --host example.com --ports 443
 ```
 
 ## Development

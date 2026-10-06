@@ -8,7 +8,14 @@ from sectools.tools import doctor
 
 def test_check_dependencies_keys():
     deps = doctor.check_dependencies()
-    assert set(deps) == {"tshark", "openssl", "cryptography (Python)"}
+    assert set(deps) == {
+        "tshark",
+        "openssl",
+        "cryptography (Python)",
+        "sslyze (Python)",
+        "sslscan",
+        "testssl.sh",
+    }
     assert all(isinstance(v, bool) for v in deps.values())
 
 

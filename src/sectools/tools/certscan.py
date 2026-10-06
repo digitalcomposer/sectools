@@ -70,6 +70,7 @@ def _summarize_with_openssl(der: bytes) -> dict[str, Any]:
             "-enddate",
             "-ext",
             "subjectAltName",
+            "-text",  # also dump the human-readable body so we can read the key/signature
         ],
         input=der,
         capture_output=True,
@@ -87,6 +88,8 @@ def _summarize_with_openssl(der: bytes) -> dict[str, Any]:
         sans_line = san_match.group(1)
     sans = [s.strip().removeprefix("DNS:") for s in sans_line.split(",") if s.strip()]
 
+    key_type, key_size = _parse_openssl_key(out)
+
     not_before = _parse_openssl_date(grab("notBefore") or "")
     not_after = _parse_openssl_date(grab("notAfter") or "")
     return {
@@ -96,11 +99,33 @@ def _summarize_with_openssl(der: bytes) -> dict[str, Any]:
         "not_before": not_before,
         "not_after": not_after,
         "sans": sans,
-        "signature_algorithm": None,
-        "key_type": None,
-        "key_size": None,
+        # The signature algorithm is printed once per structure; the first hit is the cert's.
+        "signature_algorithm": _search1(r"Signature Algorithm:\s*(\S+)", out),
+        "key_type": key_type,
+        "key_size": key_size,
         "engine": "openssl",
     }
+
+
+def _search1(pattern: str, text: str) -> str | None:
+    match = re.search(pattern, text)
+    return match.group(1) if match else None
+
+
+def _parse_openssl_key(text: str) -> tuple[str | None, int | None]:
+    """Derive ``(key_type, key_size)`` from ``openssl x509 -text`` output."""
+    size_match = re.search(r"Public-Key:\s*\((\d+)\s*bit\)", text)
+    key_size = int(size_match.group(1)) if size_match else None
+
+    algo = _search1(r"Public Key Algorithm:\s*(\S+)", text)
+    if algo is None:
+        return None, key_size
+    if "rsa" in algo.lower():
+        return "RSA", key_size
+    if "ec" in algo.lower() or "ecdsa" in algo.lower():
+        curve = _search1(r"NIST CURVE:\s*(\S+)", text) or _search1(r"ASN1 OID:\s*(\S+)", text)
+        return (f"EC ({curve})" if curve else "EC"), key_size
+    return algo, key_size
 
 
 def _summarize_with_cryptography(der: bytes) -> dict[str, Any]:
@@ -171,6 +196,43 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--timeout", type=float, default=10.0, help="connection timeout (seconds)")
 
 
+def _identity(cert: dict[str, Any]) -> str:
+    """Best human-readable identity: the subject DN, or the SANs when it is empty.
+
+    Modern CAs (e.g. Let's Encrypt) issue certs with an empty Subject DN and carry
+    the hostname(s) only in the SAN extension, so a subject-only column is blank for
+    the most common certificates on the web.
+    """
+    subject = (cert.get("subject") or "").strip()
+    if subject:
+        return subject
+    sans = cert.get("sans") or []
+    return ", ".join(sans) if sans else "—"
+
+
+def _key_label(cert: dict[str, Any]) -> str | None:
+    """Render ``key_type``/``key_size`` as one cell, e.g. ``RSA 2048`` or ``EC (P-256)``."""
+    key_type = cert.get("key_type")
+    if not key_type:
+        return None
+    key_size = cert.get("key_size")
+    if key_size and "(" not in key_type:  # avoid "EC (P-256) 256"
+        return f"{key_type} {key_size}"
+    return key_type
+
+
+def _status(cert: dict[str, Any]) -> str:
+    """One-glance expiry verdict: ✗ expired, ⚠ expiring soon, ✓ valid."""
+    if cert.get("expired"):
+        return "✗ expired"
+    days = cert.get("days_until_expiry")
+    if days is None:
+        return "? unknown"
+    if days < 30:
+        return f"⚠ expires in {days}d"
+    return f"✓ valid ({days}d)"
+
+
 def run(args: argparse.Namespace) -> Finding:
     results: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -202,17 +264,19 @@ def run(args: argparse.Namespace) -> Finding:
     rows = [
         (
             cert["source"],
-            cert.get("subject"),
+            _status(cert),
+            _identity(cert),
+            cert.get("issuer"),
             cert.get("not_after"),
-            cert.get("days_until_expiry"),
-            cert.get("key_type"),
+            _key_label(cert),
         )
         for cert in results
     ]
     md = (
         report.heading("Certificate analysis", 2)
         + "\n\n"
-        + report.table(["Source", "Subject", "Not after", "Days left", "Key"], rows)
+        + "Status key: ✓ valid · ⚠ expiring soon (<30d) · ✗ expired\n\n"
+        + report.table(["Source", "Status", "Subject / SAN", "Issuer", "Not after", "Key"], rows)
     )
 
     return Finding(
